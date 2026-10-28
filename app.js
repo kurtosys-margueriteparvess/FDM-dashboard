@@ -125,7 +125,6 @@
     if (state.scenario === 'populated') {
       var box = function (n, l) { return '<div class="stat"><span class="num">' + n + '</span><span class="lab">' + l + '</span></div>'; };
       return '<section class="card pad right checks">' + head +
-        '<span class="tag">Future state, not served by the platform yet</span>' +
         '<div><div class="big">98.4%</div><div class="cap">of checked values matched</div></div>' +
         box('1,186', 'Checked') + box('14', 'Pending first results') + box('6', 'Not checked*') + foot + '</section>';
     }
@@ -139,15 +138,13 @@
     var r = rows().filter(function (x) { return x.id === state.panel; })[0];
     if (!r) return '';
     var dl = [['Service', r.svc], ['Publication', r.pipe], ['Run date', fmtLong(r.run)], ['Entities', r.ent], ['File', r.file]];
-    var title = 'This delivery landed.', text = 'The file reached ' + r.dest + ' and was accepted.';
-    if (r.status === 'pending') { title = 'Still to send.'; text = 'This run is queued and has not gone out yet.'; }
-    if (r.status === 'failed') { title = 'We are already on it.'; text = 'This delivery did not land.'; dl.push(['Cause', r.cause]); }
+    if (r.status === 'failed') dl.push(['Cause', r.cause]);
     return '<div class="scrim"><button class="bg" data-action="close" aria-label="Close delivery details"></button>' +
       '<aside class="panel" role="dialog" aria-modal="true" aria-label="Delivery details">' +
       '<div class="phead"><button class="close" id="panel-close" data-action="close" aria-label="Close">' + svg(I.x, 22) + '</button><div><span class="f">' + esc(r.file) + '</span><span class="d">' + esc(r.dest) + '</span></div></div>' +
       '<div class="pbody"><div class="ptitle">Delivery details</div><dl class="dl"><div><dt>Status</dt><dd>' + badge(r.status) + '</dd></div>' +
       dl.map(function (d) { return '<div><dt>' + d[0] + '</dt><dd>' + esc(d[1]) + '</dd></div>'; }).join('') + '</dl>' +
-      '<div class="pnote"><b>' + title + '</b><span>' + esc(text) + '</span></div></div>' +
+      '</div>' +
       '<div class="pfoot"><button class="btn">View destination</button><button class="btn primary">' + svg(I.download, 18) + 'Download file</button></div>' +
       '</aside></div>';
   }
