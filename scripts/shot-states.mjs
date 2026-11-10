@@ -1,0 +1,31 @@
+// Screenshots at the same 1440x1024 frame size as the Figma frames, for side-by-side comparison.
+import { chromium } from 'playwright-core'
+const BASE = process.env.BASE ?? 'http://localhost:4173/'
+const browser = await chromium.launch({ channel: 'chrome' })
+const page = await browser.newPage({ viewport: { width: 1440, height: 1024 } })
+await page.goto(BASE)
+await page.waitForSelector('[data-testid="overview"]')
+await page.waitForTimeout(300)
+await page.screenshot({ path: 'verification/frame-morning.png' })
+// afternoon: Wed 12 Aug, shown via the graph
+await page.locator('[data-testid="graph-col-2026-08-12"] rect').first().hover()
+await page.getByTestId('show-day').click()
+await page.mouse.move(700, 5)
+await page.waitForTimeout(400)
+await page.screenshot({ path: 'verification/frame-afternoon.png' })
+// hover on graph, Wed 5 Aug, from the early-morning state
+await page.getByRole('button', { name: 'Back to today' }).click()
+await page.locator('[data-testid="graph-col-2026-08-05"] rect').first().hover()
+await page.waitForTimeout(300)
+await page.screenshot({ path: 'verification/frame-hover.png' })
+await page.mouse.move(700, 5)
+await page.getByRole('button', { name: 'Open navigation' }).click()
+await page.waitForTimeout(500)
+await page.screenshot({ path: 'verification/frame-sidenav.png' })
+await page.getByRole('button', { name: 'Close navigation' }).click()
+await page.locator('[data-testid="graph-col-2026-08-12"] rect').first().hover()
+await page.getByTestId('show-day').click()
+await page.getByTestId('delivery-row').first().click()
+await page.waitForTimeout(300)
+await page.screenshot({ path: 'verification/frame-drawer.png' })
+await browser.close()

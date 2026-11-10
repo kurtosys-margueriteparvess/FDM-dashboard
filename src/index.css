@@ -1,0 +1,91 @@
+@import '@fontsource/dm-sans/400.css';
+@import '@fontsource/dm-sans/500.css';
+@import '@fontsource/dm-sans/600.css';
+@import '@fontsource/dm-sans/700.css';
+@import 'tailwindcss';
+
+/* Design tokens, taken from the Figma variables (page "Dashboard future"). */
+@theme {
+  --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+
+  --color-brand: #0342e4;
+  --color-brand-border: #005bcc;
+  --color-ink: #3a4051;
+  --color-ink-secondary: #69748e;
+  --color-ink-table-head: #4a5267;
+  --color-line: #d7dceb;
+  --color-line-strong: #c3c9d9;
+  --color-line-subtle: #e0e3ed;
+  --color-surface-subtle: #f1f1f4;
+  --color-surface-sunken: #e8e9ee;
+  --color-surface-nav: #f9fafb;
+  --color-table-head: #e0e3ed;
+
+  --color-error: #d32f2f;
+  --color-error-strong: #c62828;
+  --color-error-bg: #fdeeed;
+  --color-error-border: #ef5350;
+  --color-success: #1b5e20;
+  --color-success-bg: #e4f9ec;
+  --color-success-border: #00c761;
+
+  --color-series-received: #00c761;
+  --color-series-owed: #2272e7;
+  --color-series-delivered: #ff7043;
+
+  --shadow-card: 0 0 2px #0000000f, 0 4px 8px #0000001f;
+  --shadow-pop: 0 0 2px #0000000f, 0 6px 16px #00000029;
+  --shadow-nav: 2px 4px 4px #203b6605, 2px 2px 1px #203b6608;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Visible focus ring for every interactive element. */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+/* Nav items that are visible but not clickable in this test. */
+[aria-disabled='true'] {
+  cursor: default;
+}
+
+/* Figures section: three flexible columns plus the 222px Assurance column,
+   reflowing to two columns when its container gets narrow (for example with the navigation open). */
+.figures-card {
+  container-type: inline-size;
+  container-name: figures;
+}
+.figures-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) 222px;
+}
+@container figures (max-width: 880px) {
+  .figures-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 8px;
+  }
+}
+@container figures (max-width: 520px) {
+  .figures-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
