@@ -1,5 +1,17 @@
 import { useState } from 'react'
 import {
+  Bookmark,
+  ChartLine,
+  Heart,
+  Inbox,
+  Languages,
+  Library,
+  MessageSquare,
+  PanelsTopLeft,
+  Send,
+  Shapes,
+  Table,
+  Users,
   ChevronDown,
   ChevronUp,
   ChevronsUpDown,
@@ -21,6 +33,18 @@ import { NAV_ITEMS, type NavItem } from '../config'
 import { LogoMark, LogoWordmark } from './Logo'
 
 const ICONS: Record<string, LucideIcon> = {
+  Bookmark,
+  ChartLine,
+  Heart,
+  Inbox,
+  Languages,
+  Library,
+  MessageSquare,
+  PanelsTopLeft,
+  Send,
+  Shapes,
+  Table,
+  Users,
   LayoutGrid,
   Globe,
   FileText,
@@ -92,7 +116,7 @@ export function Navigation({ pinned, onTogglePin }: { pinned: boolean; onToggleP
         aria-label="Main"
         data-testid="nav"
         data-open={open}
-        className={`absolute inset-y-0 left-0 flex flex-col overflow-hidden border-r border-line-subtle bg-surface-nav transition-[width,box-shadow] duration-200 ${open && !pinned ? 'shadow-[4px_0_16px_#0000001f]' : ''}`}
+        className={`absolute inset-y-0 left-0 flex flex-col overflow-y-auto overflow-x-hidden border-r border-line-subtle bg-surface-nav transition-[width,box-shadow] duration-200 ${open && !pinned ? 'shadow-[4px_0_16px_#0000001f]' : ''}`}
         style={{ width: open ? 312 : 67 }}
       >
         {open ? (

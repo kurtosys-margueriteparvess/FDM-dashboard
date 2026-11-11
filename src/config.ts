@@ -52,7 +52,7 @@ export type NavItem = {
 /**
  * Side navigation, as in the Figma frame "Dashboard - side nav open".
  * Edit labels, icons, order and `enabled` here. All items are visible but
- * not clickable for this test (the toggle at the top still opens and closes the nav).
+ * not clickable for this test (the menu opens on hover and can be pinned).
  *
  * [MENU ITEMS: to be clarified. Replace or extend the entries below.]
  */
@@ -63,11 +63,23 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'studio', label: 'Studio', icon: 'MonitorPlay', enabled: false, level: 0, chevron: 'down' },
   { id: 'data', label: 'Data', icon: 'Network', enabled: false, level: 0, chevron: 'up', state: 'parent' },
   { id: 'data-hub', label: 'Data hub', icon: '', enabled: false, level: 1, heading: true },
+  { id: 'data-data', label: 'Data', icon: 'ChartLine', enabled: false, level: 1 },
+  { id: 'disclaimers', label: 'Disclaimers', icon: 'FileText', enabled: false, level: 1 },
+  { id: 'commentaries', label: 'Commentaries', icon: 'MessageSquare', enabled: false, level: 1 },
+  { id: 'translations', label: 'Translations', icon: 'Languages', enabled: false, level: 1 },
+  { id: 'segmentation', label: 'Segmentation', icon: 'Table', enabled: false, level: 1 },
+  { id: 'fund-managers', label: 'Fund Managers', icon: 'Users', enabled: false, level: 1 },
+  { id: 'health-check', label: 'Health Check', icon: 'Heart', enabled: false, level: 1 },
+  { id: 'datasets-hub', label: 'Datasets', icon: 'Database', enabled: false, level: 1 },
+  { id: 'tools-gallery', label: 'Tools Gallery', icon: 'Shapes', enabled: false, level: 1 },
+  { id: 'layouts', label: 'Layouts', icon: 'PanelsTopLeft', enabled: false, level: 1 },
   { id: 'fda', label: 'Fund Data Assurance', icon: 'Network', enabled: false, level: 1, chevron: 'up', state: 'active-parent' },
   { id: 'overview', label: 'Overview', icon: 'Globe', route: '/', enabled: false, level: 2, state: 'active' },
-  { id: 'deliveries', label: 'Deliveries', icon: 'Circle', route: '/deliveries', enabled: false, level: 2 },
-  { id: 'files-received', label: 'Files received', icon: 'Circle', route: '/files-received', enabled: false, level: 2 },
-  { id: 'golden-source', label: 'Golden source', icon: 'Circle', route: '/golden-source', enabled: false, level: 2 },
+  { id: 'files-received', label: 'Files received', icon: 'Inbox', route: '/files-received', enabled: false, level: 2 },
+  { id: 'deliveries', label: 'Deliveries', icon: 'Send', route: '/deliveries', enabled: false, level: 2 },
+  { id: 'destinations', label: 'Destinations', icon: 'Network', enabled: false, level: 2 },
+  { id: 'fund-explorer', label: 'Fund explorer', icon: 'Library', enabled: false, level: 2 },
+  { id: 'user-guide', label: 'User guide', icon: 'Bookmark', enabled: false, level: 2 },
   { id: 'datasets', label: 'Datasets', icon: 'Database', enabled: false, level: 1 },
   { id: 'data-loader', label: 'Data Loader', icon: 'Upload', enabled: false, level: 1 },
   { id: 'system-admin', label: 'System Administration', icon: 'Settings', enabled: false, level: 0, chevron: 'down' },
