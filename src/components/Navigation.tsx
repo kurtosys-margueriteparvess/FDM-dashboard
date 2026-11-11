@@ -103,7 +103,7 @@ export function Navigation({ pinned, onTogglePin }: { pinned: boolean; onToggleP
   const open = pinned || hover || focus
   return (
     <div
-      className="relative z-20 shrink-0 transition-[width] duration-200"
+      className="sticky top-0 z-20 h-screen shrink-0 self-start transition-[width] duration-200"
       style={{ width: pinned ? 312 : 67 }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}

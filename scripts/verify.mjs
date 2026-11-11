@@ -236,6 +236,22 @@ await page.mouse.move(900, 400)
 await page.waitForTimeout(450)
 check(Math.abs((await page.locator('main').boundingBox()).width - mainBefore) < 3, 'unpinning gives the width back')
 
+// the navigation scrolls on its own and stays put while the page scrolls
+await page.setViewportSize({ width: 1440, height: 700 })
+await page.mouse.move(30, 300)
+await page.waitForTimeout(400)
+const navScroll = await page.getByTestId('nav').evaluate((e) => ({ sh: e.scrollHeight, ch: e.clientHeight }))
+check(navScroll.sh > navScroll.ch, `navigation is taller than the window and scrolls itself (${navScroll.sh} > ${navScroll.ch})`)
+await page.getByTestId('nav').evaluate((e) => (e.scrollTop = 200))
+check((await page.getByTestId('nav').evaluate((e) => e.scrollTop)) > 100, 'navigation scrolls separately')
+await page.mouse.wheel(0, 600)
+await page.mouse.move(900, 300)
+await page.waitForTimeout(300)
+const navTop = (await page.getByTestId('nav').boundingBox()).y
+check(Math.abs(navTop) < 2, `navigation stays fixed in view when the page scrolls (${navTop})`)
+await page.evaluate(() => window.scrollTo(0, 0))
+await page.setViewportSize({ width: 1440, height: 1100 })
+
 // ---------------------------------------------------------------- 8. figure tiles are not clickable
 console.log('\n8. Figure tiles')
 eq(await page.locator('[data-testid="figures"] button').count(), 0, 'no figure tile is a button')
