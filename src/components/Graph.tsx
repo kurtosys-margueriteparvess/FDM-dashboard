@@ -187,7 +187,7 @@ export function Graph({
           </ul>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <div className="text-[15px] leading-5 text-ink" data-testid="showing-label">
+          <div className="text-[11px] leading-4 text-[#4a5267]" data-testid="showing-label">
             Showing {fmtShort(selectedDate)}
           </div>
           <button
