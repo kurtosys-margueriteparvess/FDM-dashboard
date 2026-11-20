@@ -20,7 +20,7 @@ export function Overview({
   const showBanner = day.banner && !dismissed[date]
   return (
     <div className="pb-6" data-testid="overview" data-date={date}>
-      <PageHeader title="Overview" date={date} isToday={day.isToday} onDateChange={onDateChange} />
+      <PageHeader title="Overview" date={date} onDateChange={onDateChange} />
       {showBanner && day.banner && (
         <FailureBanner banner={day.banner} onDismiss={() => setDismissed((d) => ({ ...d, [date]: true }))} />
       )}

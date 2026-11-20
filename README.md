@@ -22,25 +22,27 @@ Edit `src/config.ts`:
 - `TODAY` (currently 2026-08-14, a Friday). Every date on the page is derived from it.
 - `DATA_HORIZON_DAYS` (16): how far back the date picker and graph allow.
 - `GRAPH_DAYS` (13): days shown on the graph.
-- `LAST_REFRESHED_MORNING` / `LAST_REFRESHED_PAST`: the "Last refreshed at" times.
+- `TODAY_STATE` and `LAST_REFRESHED`: which view today shows, and the "Last refreshed at" time for each.
 - `TILES_NAVIGATE` (currently `false`): figure tiles are not clickable. Set to `true` to open the placeholder pages.
 
 ## How the data works
 
 `src/data.ts` generates each day from a seed based on the date, so the same date always shows the same numbers.
 
-- Not processed + Rejected + Processed = Received
-- Scheduled + Failed + Delivered = Owed
-- Matched + Mismatched = Checked
-- Accuracy = Matched / Checked, rounded. Target 97%.
-- Weekly change = average accuracy of the last 7 days minus the previous 7 days, in percentage points.
-- The failure banner shows only when Failed is above 0.
-- Table rows, file names and the graph points all use the selected date.
-- Saturdays have data. Sundays are all zeros.
-- Today, early morning: Received and Owed have figures. Delivered, Failed, Checked and Accuracy are 0, and accuracy shows a placeholder until checks arrive.
-- Failures sit at today minus 2, 6 and 10, each with a different cause.
+Main tiles show a part out of a whole: **Processed / Received**, **Delivered / Owed**, **Checked / Checkable**.
 
-`scripts/consistency.ts` checks all of this.
+- Today, Processed + Not processed + Rejected = Received. Delivered + Scheduled + Failed = Owed. Matched + Mismatched = Checked.
+- Finished days (every day before today): everything is processed and delivered. Problems that came up are shown as **Rejected resolved**, **Failures resolved** and **Mismatches resolved**, and there is no banner.
+- Accuracy is shown as two cards, **Static data** and **Dynamic data** (percent of checked values). They appear once checks exist; until then a placeholder shows.
+- The graph's Processed and Delivered points equal the tiles for that day. The Deliveries table shows at most 5 rows, latest first; the column headers re-sort them.
+- Saturdays have data. Sundays are all zeros.
+
+Today has two states. Open the page with `?state=morning` or `?state=afternoon`, or change the default in `src/config.ts`:
+
+- **morning** (default): files received and scheduled, nothing delivered or checked yet, no accuracy.
+- **afternoon**: part delivered, part scheduled, a live failure with the alert banner, some checks in, accuracy 100% / 99%.
+
+`npm run check:data` checks all of this. `TODAY_STATE=afternoon npm run check:data` checks the afternoon state.
 
 ## Navigation
 
@@ -49,3 +51,5 @@ Side navigation items are listed in `NAV_ITEMS` in `src/config.ts`. All are visi
 ## Not clickable / placeholders
 
 With `TILES_NAVIGATE` on, the figure tiles open placeholder pages (`/files-received`, `/deliveries`, `/golden-source`) with `date` and `filter` in the URL. Each has a "Back to Overview" link.
+
+The range control above the graph (2W, 1M, 6M, 1Y) is shown as designed, but only two weeks has data, so the other ranges are not clickable.

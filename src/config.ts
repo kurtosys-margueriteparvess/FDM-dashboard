@@ -13,13 +13,24 @@ export const DATA_HORIZON_DAYS = 16
 /** Number of days shown on the graph, ending today. */
 export const GRAPH_DAYS = 13
 
-/** "Last refreshed" time on the early-morning day. */
-export const LAST_REFRESHED_MORNING = '08:25'
-/** "Last refreshed" time on every other day. */
-export const LAST_REFRESHED_PAST = '12:25'
+/**
+ * Which view "today" shows:
+ *  - 'morning': files received and scheduled, nothing delivered or checked yet.
+ *  - 'afternoon': part-way through the day, with a live failure and the alert banner.
+ * Open the page with ?state=afternoon (or ?state=morning) to override this default.
+ */
+export type TodayState = 'morning' | 'afternoon'
+const DEFAULT_TODAY_STATE: TodayState = 'morning'
+const queryState =
+  typeof location !== 'undefined'
+    ? new URLSearchParams(location.search).get('state')
+    : typeof process !== 'undefined'
+      ? (process.env.TODAY_STATE ?? null) // lets the data check run against either state
+      : null
+export const TODAY_STATE: TodayState = queryState === 'afternoon' || queryState === 'morning' ? queryState : DEFAULT_TODAY_STATE
 
-/** Accuracy target shown on the Assurance card. */
-export const ACCURACY_TARGET = 97
+/** "Last refreshed" time for each state of today. Other days show the same time as today. */
+export const LAST_REFRESHED: Record<TodayState, string> = { morning: '08:25', afternoon: '14:25' }
 
 /** The asset manager shown in the header. Invented. */
 export const ASSET_MANAGER = 'Harlow Asset Management'

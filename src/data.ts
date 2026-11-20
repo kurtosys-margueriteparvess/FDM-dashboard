@@ -2,7 +2,7 @@
 // Nothing here is copied from the Figma designs: all values are invented and generated
 // from the date itself, so every participant sees exactly the same thing.
 
-import { ACCURACY_TARGET, DATA_HORIZON_DAYS, GRAPH_DAYS, TODAY } from './config'
+import { DATA_HORIZON_DAYS, GRAPH_DAYS, TODAY, TODAY_STATE } from './config'
 import { addDays, compact, dow } from './dates'
 
 export type Status = 'Scheduled' | 'Delivered' | 'Failed'
@@ -23,17 +23,22 @@ export type DeliveryRow = {
 
 export type Banner = { count: number; destination: string; cause: string }
 
+export type Phase = 'morning' | 'afternoon' | 'past'
+
 export type DayData = {
   date: string
   isToday: boolean
   isSunday: boolean
-  received: { total: number; notProcessed: number; rejected: number; processed: number }
-  sent: { owed: number; scheduled: number; failed: number; delivered: number }
-  checks: { checked: number; mismatched: number; matched: number }
-  /** Matched / Checked, rounded. null when nothing has been checked yet. */
-  accuracy: number | null
-  /** Change in accuracy against the previous seven days, in percentage points. null when not defined. */
-  weeklyDelta: number | null
+  /** morning / afternoon apply to today only; every other day is 'past' */
+  phase: Phase
+  /** Processed / total is the main tile. Not processed + Rejected + Processed = total (today). */
+  received: { total: number; processed: number; notProcessed: number; rejected: number; rejectedResolved: number }
+  /** Delivered / owed is the main tile. Delivered + Scheduled + Failed = owed (today). */
+  sent: { owed: number; delivered: number; scheduled: number; failed: number; notDelivered: number; failuresResolved: number }
+  /** Checked / checkable is the main tile. Matched + Mismatched = Checked (today). */
+  checks: { checkable: number; checked: number; mismatched: number; matched: number; mismatchesResolved: number }
+  /** Accuracy of the checked values, in percent. null until today's checks come in. */
+  accuracy: { static: number | null; dynamic: number | null }
   banner: Banner | null
   rows: DeliveryRow[]
 }
@@ -72,18 +77,24 @@ const DESTINATIONS = [
 ]
 
 const PUBLICATIONS = [
-  { label: 'KIID documents, UK', slug: 'kiid', ext: 'zip' },
-  { label: 'Factsheets, UK retail', slug: 'factsheets', ext: 'zip' },
-  { label: 'Daily prices, EU', slug: 'pricing', ext: 'json' },
-  { label: 'NAV feed, Global', slug: 'nav', ext: 'csv' },
+  { label: 'KIID documents, UK', slug: 'kiid', ext: 'zip', service: 'Regulatory filing' },
+  { label: 'Factsheets, UK retail', slug: 'factsheets', ext: 'zip', service: 'Data dissemination' },
+  { label: 'Daily prices, EU', slug: 'pricing', ext: 'json', service: 'Data dissemination' },
+  { label: 'NAV feed, Global', slug: 'nav', ext: 'csv', service: 'Data dissemination' },
 ]
 
-/** Days with failures, as offsets from today. Each has a different cause. */
+/**
+ * Days that had failures, as offsets from today. They have all been resolved by now, so those
+ * days show "Failures resolved" and no banner. Each has a different cause.
+ */
 const FAILURES = [
   { offset: -2, count: 2, dest: 0, cause: 'The destination refused our login (SFTP authentication failed).' },
   { offset: -6, count: 1, dest: 2, cause: 'The destination rejected the file format (schema validation failed).' },
   { offset: -10, count: 1, dest: 1, cause: 'The destination could not be reached (connection timed out).' },
 ]
+
+/** The failure that is live on today's afternoon view. */
+const LIVE_FAILURE = { count: 2, dest: 0, cause: 'The destination refused our login (SFTP authentication failed).' }
 
 function failureFor(iso: string) {
   for (const f of FAILURES) {
@@ -96,7 +107,7 @@ function failureFor(iso: string) {
 
 // ---------- raw generation (any date) ----------
 
-type Raw = Omit<DayData, 'weeklyDelta' | 'rows' | 'banner'> & { failure: (typeof FAILURES)[number] | null }
+type Raw = Omit<DayData, 'rows' | 'banner'> & { failure: { count: number; dest: number; cause: string } | null }
 
 const rawCache = new Map<string, Raw>()
 
@@ -105,14 +116,16 @@ function raw(iso: string): Raw {
   if (cached) return cached
   const isToday = iso === TODAY
   const isSunday = dow(iso) === 0
+  const phase: Phase = isToday ? TODAY_STATE : 'past'
   const zero: Raw = {
     date: iso,
     isToday,
     isSunday,
-    received: { total: 0, notProcessed: 0, rejected: 0, processed: 0 },
-    sent: { owed: 0, scheduled: 0, failed: 0, delivered: 0 },
-    checks: { checked: 0, mismatched: 0, matched: 0 },
-    accuracy: null,
+    phase,
+    received: { total: 0, processed: 0, notProcessed: 0, rejected: 0, rejectedResolved: 0 },
+    sent: { owed: 0, delivered: 0, scheduled: 0, failed: 0, notDelivered: 0, failuresResolved: 0 },
+    checks: { checkable: 0, checked: 0, mismatched: 0, matched: 0, mismatchesResolved: 0 },
+    accuracy: { static: null, dynamic: null },
     failure: null,
   }
   if (isSunday) {
@@ -123,36 +136,49 @@ function raw(iso: string): Raw {
   const saturday = dow(iso) === 6
 
   const owed = saturday ? between(r, 36, 52) : between(r, 55, 112)
-  const total = saturday ? between(r, 6, 12) : between(r, 14, 34)
-  let rejected = r() < 0.4 ? 1 : r() < 0.1 ? 2 : 0
-  let notProcessed = r() < 0.15 ? 1 : 0
-  if (isToday && rejected === 0) rejected = 1 // the early-morning view always has at least one Rejected
-  if (isToday) notProcessed = 0
-  const processed = total - rejected - notProcessed
+  const out: Raw = { ...zero, received: { ...zero.received }, sent: { ...zero.sent }, checks: { ...zero.checks } }
 
-  const failure = isToday ? null : failureFor(iso)
-  const failed = failure ? failure.count : 0
-  const scheduled = isToday ? owed : 0
-  const delivered = isToday ? 0 : owed - failed
-
-  let checked = 0
-  let mismatched = 0
-  if (!isToday) {
-    checked = Math.min(delivered, Math.max(35, Math.round(delivered * between(r, 45, 60) / 100)))
-    mismatched = checked >= 34 ? (r() < 0.1 ? 0 : checked >= 56 && r() < 0.3 ? 2 : 1) : 0
-  }
-  const matched = checked - mismatched
-  const accuracy = checked > 0 ? Math.round((100 * matched) / checked) : null
-
-  const out: Raw = {
-    date: iso,
-    isToday,
-    isSunday,
-    received: { total, notProcessed, rejected, processed },
-    sent: { owed, scheduled, failed, delivered },
-    checks: { checked, mismatched, matched },
-    accuracy,
-    failure,
+  if (phase === 'morning') {
+    // Early morning: files are in and scheduled. Nothing sent or checked yet.
+    const total = between(r, 3, 9)
+    const rejected = r() < 0.25 ? 1 : 0
+    out.received = { total, processed: total - rejected, notProcessed: 0, rejected, rejectedResolved: 0 }
+    out.sent = { owed, delivered: 0, scheduled: owed, failed: 0, notDelivered: 0, failuresResolved: 0 }
+  } else if (phase === 'afternoon') {
+    // Afternoon: part-way through the day, with a live failure.
+    const total = between(r, 12, 24)
+    const notProcessed = between(r, 1, 2)
+    out.received = { total, processed: total - notProcessed, notProcessed, rejected: 0, rejectedResolved: 0 }
+    const failed = LIVE_FAILURE.count
+    const delivered = Math.round((owed * between(r, 55, 70)) / 100)
+    out.sent = { owed, delivered, scheduled: owed - delivered - failed, failed, notDelivered: 0, failuresResolved: 0 }
+    const checkable = Math.round(delivered * 0.9)
+    const checked = Math.round((checkable * between(r, 25, 40)) / 100)
+    const mismatched = r() < 0.25 ? 1 : 0
+    out.checks = { checkable, checked, mismatched, matched: checked - mismatched, mismatchesResolved: 0 }
+    out.accuracy = { static: 100, dynamic: 99 }
+    out.failure = LIVE_FAILURE
+  } else {
+    // A finished day: everything is processed and delivered; problems that came up were resolved.
+    const total = saturday ? between(r, 6, 12) : between(r, 14, 34)
+    const rejectedResolved = r() < 0.5 ? between(r, 1, 2) : 0
+    out.received = { total, processed: total, notProcessed: 0, rejected: 0, rejectedResolved }
+    const failure = failureFor(iso)
+    out.sent = { owed, delivered: owed, scheduled: 0, failed: 0, notDelivered: 0, failuresResolved: failure ? failure.count : 0 }
+    const checkable = Math.max(8, Math.round((owed * between(r, 45, 60)) / 100))
+    const checked = Math.max(0, checkable - between(r, 0, 3))
+    out.checks = {
+      checkable,
+      checked,
+      mismatched: 0,
+      matched: checked,
+      mismatchesResolved: r() < 0.6 ? between(r, 1, 2) : 0,
+    }
+    out.accuracy = {
+      static: r() < 0.7 ? 100 : between(r, 98, 99),
+      dynamic: r() < 0.4 ? 100 : between(r, 96, 99),
+    }
+    out.failure = null
   }
   rawCache.set(iso, out)
   return out
@@ -167,28 +193,13 @@ export function isAvailable(iso: string): boolean {
   return iso >= EARLIEST && iso <= TODAY
 }
 
-function weeklyDelta(iso: string): number | null {
-  const avg = (from: number, to: number) => {
-    const vals: number[] = []
-    for (let o = from; o <= to; o++) {
-      const a = raw(addDays(iso, -o)).accuracy
-      if (a !== null) vals.push(a)
-    }
-    return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null
-  }
-  const thisWeek = avg(0, 6)
-  const lastWeek = avg(7, 13)
-  if (thisWeek === null || lastWeek === null || raw(iso).accuracy === null) return null
-  return Math.round(thisWeek - lastWeek)
-}
-
 function buildRows(base: Raw): DeliveryRow[] {
-  const { date, sent, failure, isSunday } = base
+  const { date, sent, failure, isSunday, phase } = base
   if (isSunday) return []
   const r = mulberry32(hash(date + ':rows'))
   const MAX_ROWS = 5
   const failedRows = Math.min(sent.failed, MAX_ROWS)
-  const scheduledRows = Math.min(sent.scheduled, MAX_ROWS - failedRows)
+  const scheduledRows = Math.min(sent.scheduled, phase === 'afternoon' ? 1 : MAX_ROWS - failedRows)
   const deliveredRows = Math.min(sent.delivered, MAX_ROWS - failedRows - scheduledRows)
 
   const make = (i: number, status: Status, destIndex: number, time: string, cause?: string): DeliveryRow => {
@@ -198,7 +209,7 @@ function buildRows(base: Raw): DeliveryRow[] {
       id: `${date}-${status.toLowerCase()}-${i}`,
       destination: dest.name,
       file: `${dest.code}_${pub.slug}_${compact(date)}.${pub.ext}`,
-      service: 'Data dissemination',
+      service: pub.service,
       publication: pub.label,
       runDate: date,
       time,
@@ -218,24 +229,34 @@ function buildRows(base: Raw): DeliveryRow[] {
     const t = randTime(6, 11)
     rows.push(make(i, 'Failed', failure ? failure.dest : 0, `${t.label} UTC`, failure?.cause))
   }
-  const sched: { mins: number; row: DeliveryRow }[] = []
   for (let i = 0; i < scheduledRows; i++) {
-    const t = randTime(9.25, 16.75)
-    sched.push({ mins: t.mins, row: make(i, 'Scheduled', Math.floor(r() * DESTINATIONS.length), `Scheduled to send at ${t.label} UTC`) })
+    const t = phase === 'afternoon' ? randTime(14.75, 17) : randTime(9.25, 16.75)
+    rows.push(make(i, 'Scheduled', Math.floor(r() * DESTINATIONS.length), `Scheduled to send at ${t.label} UTC`))
   }
-  sched.sort((a, b) => a.mins - b.mins).forEach((s) => rows.push(s.row))
-  const deliv: { mins: number; row: DeliveryRow }[] = []
   for (let i = 0; i < deliveredRows; i++) {
-    const t = randTime(5.5, 14.75)
-    deliv.push({ mins: t.mins, row: make(i, 'Delivered', Math.floor(r() * DESTINATIONS.length), `${t.label} UTC`) })
+    const t = phase === 'past' ? randTime(5.5, 14.75) : randTime(5.5, 14)
+    rows.push(make(i, 'Delivered', Math.floor(r() * DESTINATIONS.length), `${t.label} UTC`))
   }
-  deliv.sort((a, b) => b.mins - a.mins).forEach((d) => rows.push(d.row))
-  // Latest first: times descend down the table (a scheduled time counts as its time).
-  const mins = (row: DeliveryRow) => {
-    const m = /(\d{2}):(\d{2})/.exec(row.time)
-    return m ? Number(m[1]) * 60 + Number(m[2]) : 0
-  }
-  return rows.sort((a, b) => mins(b) - mins(a))
+  return sortRows(rows, 'time', 'desc')
+}
+
+export type SortKey = 'destination' | 'service' | 'runDate' | 'time' | 'status'
+
+const timeMins = (row: DeliveryRow) => {
+  const m = /(\d{2}):(\d{2})/.exec(row.time)
+  return m ? Number(m[1]) * 60 + Number(m[2]) : 0
+}
+
+/** Sorts a copy of the rows. Latest first when sorting by time, descending. */
+export function sortRows(rows: DeliveryRow[], key: SortKey, dir: 'asc' | 'desc'): DeliveryRow[] {
+  const sign = dir === 'asc' ? 1 : -1
+  return [...rows].sort((a, b) => {
+    const c =
+      key === 'time'
+        ? timeMins(a) - timeMins(b)
+        : String(a[key]).localeCompare(String(b[key]))
+    return c !== 0 ? sign * c : timeMins(b) - timeMins(a)
+  })
 }
 
 const dayCache = new Map<string, DayData>()
@@ -249,11 +270,11 @@ export function getDay(iso: string): DayData {
     date: iso,
     isToday: base.isToday,
     isSunday: base.isSunday,
+    phase: base.phase,
     received: base.received,
     sent: base.sent,
     checks: base.checks,
     accuracy: base.accuracy,
-    weeklyDelta: weeklyDelta(iso),
     banner: base.failure
       ? {
           count: base.failure.count,
@@ -267,20 +288,18 @@ export function getDay(iso: string): DayData {
   return day
 }
 
-/** The 13 days shown on the graph, ending today. */
+/** The days shown on the graph, ending today. */
 export function graphDates(): string[] {
   const out: string[] = []
   for (let i = GRAPH_DAYS - 1; i >= 0; i--) out.push(addDays(TODAY, -i))
   return out
 }
 
-export type GraphPoint = { date: string; available: boolean; received: number; owed: number; delivered: number }
+export type GraphPoint = { date: string; available: boolean; processed: number; delivered: number }
 
 /** Points for the graph. They come from exactly the same figures the page shows for that date. */
 export function graphPoint(iso: string): GraphPoint {
-  if (!isAvailable(iso)) return { date: iso, available: false, received: 0, owed: 0, delivered: 0 }
+  if (!isAvailable(iso)) return { date: iso, available: false, processed: 0, delivered: 0 }
   const d = getDay(iso)
-  return { date: iso, available: true, received: d.received.total, owed: d.sent.owed, delivered: d.sent.delivered }
+  return { date: iso, available: true, processed: d.received.processed, delivered: d.sent.delivered }
 }
-
-export { ACCURACY_TARGET }

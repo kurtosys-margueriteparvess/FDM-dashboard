@@ -29,9 +29,8 @@
   --color-success-bg: #e4f9ec;
   --color-success-border: #00c761;
 
-  --color-series-received: #00c761;
-  --color-series-owed: #2272e7;
-  --color-series-delivered: #ff7043;
+  --color-series-processed: #2272e7;
+  --color-series-delivered: #00c761;
 
   --shadow-card: 0 0 2px #0000000f, 0 4px 8px #0000001f;
   --shadow-pop: 0 0 2px #0000000f, 0 6px 16px #00000029;
@@ -68,24 +67,46 @@ button {
   cursor: default;
 }
 
-/* Figures section: three flexible columns plus the 222px Assurance column,
-   reflowing to two columns when its container gets narrow (for example with the navigation open). */
+/* Figures section: one card in three sections (Files received, Files sent, Published files checked
+   with the accuracy cards). Reflows to two columns, then one, when its container gets narrow. */
 .figures-card {
   container-type: inline-size;
   container-name: figures;
 }
 .figures-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) 222px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr);
+}
+.figures-grid > section + section {
+  border-left: 1px solid var(--color-line);
+}
+.checked-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
 }
 @container figures (max-width: 880px) {
   .figures-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     row-gap: 8px;
   }
+  .figures-grid > section:nth-child(3) {
+    grid-column: 1 / -1;
+    border-left: 0;
+    border-top: 1px solid var(--color-line);
+    padding-top: 16px;
+  }
 }
 @container figures (max-width: 520px) {
   .figures-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .figures-grid > section + section {
+    border-left: 0;
+    border-top: 1px solid var(--color-line);
+    padding-top: 16px;
+  }
+  .checked-body {
     grid-template-columns: minmax(0, 1fr);
   }
 }

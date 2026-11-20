@@ -14,10 +14,12 @@ const SVG_H = PLOT_H + LABEL_H
 const POP_W = 204
 
 const SERIES = [
-  { key: 'received', label: 'Received', color: 'var(--color-series-received)', width: 2 },
-  { key: 'owed', label: 'Owed', color: 'var(--color-series-owed)', width: 4 },
+  { key: 'processed', label: 'Processed', color: 'var(--color-series-processed)', width: 1.5 },
   { key: 'delivered', label: 'Delivered', color: 'var(--color-series-delivered)', width: 1.5 },
 ] as const
+
+/** Time ranges in the control above the graph. Only two weeks has data in this prototype. */
+const RANGES = ['2W', '1M', '6M', '1Y'] as const
 
 type SeriesKey = (typeof SERIES)[number]['key']
 
@@ -58,7 +60,7 @@ export function Graph({
   const colX = (i: number) => AXIS_W + i * colW
   const colC = (i: number) => AXIS_W + i * colW + colW / 2
 
-  const maxVal = Math.max(150, ...points.map((p) => Math.max(p.received, p.owed, p.delivered)))
+  const maxVal = Math.max(150, ...points.map((p) => Math.max(p.processed, p.delivered)))
   const yMax = Math.ceil(maxVal / 50) * 50
   const y = (v: number) => Y_BOTTOM - (v / yMax) * (Y_BOTTOM - Y_TOP)
   const gridValues: number[] = []
@@ -172,10 +174,10 @@ export function Graph({
 
   return (
     <section className="mx-4 mb-4 rounded-2xl border border-line bg-white px-[27px] py-[17px] shadow-card" aria-labelledby="graph-title" data-testid="graph-card">
-      <div className="flex items-start justify-between">
-        <div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-max flex-1 basis-0">
           <h2 id="graph-title" className="m-0 text-[18px] font-semibold leading-6 text-ink">
-            Files {fmtRange(dates[0], dates[n - 1])}
+            Inbound &amp; Outbound Files
           </h2>
           <ul className="m-0 mt-2 flex list-none gap-2 p-0">
             {SERIES.map((s) => (
@@ -186,14 +188,36 @@ export function Graph({
             ))}
           </ul>
         </div>
-        <div className="flex flex-col items-end gap-1">
+        <div
+          role="tablist"
+          aria-label="Time range"
+          className="flex h-8 shrink-0 items-center rounded-lg bg-surface-subtle p-[2px]"
+          data-testid="range-tabs"
+        >
+          {RANGES.map((r) => {
+            const on = r === '2W'
+            return (
+              <span
+                key={r}
+                role="tab"
+                aria-selected={on}
+                aria-disabled={on ? undefined : 'true'}
+                className={`flex h-7 w-[58px] items-center justify-center rounded-md text-[12px] ${on ? 'bg-white font-medium text-ink shadow-[0_1px_3px_#0000001f]' : 'text-ink-secondary'}`}
+              >
+                {r}
+              </span>
+            )
+          })}
+        </div>
+        <div className="flex min-w-max flex-1 basis-0 flex-col items-end gap-1">
           <div className="text-[11px] leading-4 text-[#4a5267]" data-testid="showing-label">
             Showing {fmtShort(selectedDate)}
           </div>
           <button
             type="button"
             onClick={() => onSelect(TODAY)}
-            className="h-[29px] rounded border border-brand-border bg-white px-3 text-[13px] font-medium text-brand hover:bg-[#f2f6ff]"
+            disabled={selectedDate === TODAY}
+            className="h-[29px] rounded border border-brand-border bg-white px-3 text-[13px] font-medium text-brand hover:bg-[#f2f6ff] disabled:cursor-default disabled:border-line disabled:bg-white disabled:text-[#b4bacb] disabled:hover:bg-white"
           >
             Back to today
           </button>
@@ -266,22 +290,37 @@ export function Graph({
             ),
           )}
 
-          {/* selected day: band and centre line */}
+          {/* areas under the lines: delivered in green, processed in blue */}
+          {SERIES.slice().reverse().map((s) => {
+            const idx = points.map((p, i) => (p.available ? i : -1)).filter((i) => i >= 0)
+            if (idx.length < 2) return null
+            const d =
+              `M ${colC(idx[0])} ${y(0)} ` +
+              idx.map((i) => `L ${colC(i)} ${y(points[i][s.key])}`).join(' ') +
+              ` L ${colC(idx[idx.length - 1])} ${y(0)} Z`
+            return <path key={s.key} d={d} fill={s.color} opacity={s.key === 'delivered' ? 0.16 : 0.34} data-testid={`area-${s.key}`} />
+          })}
+
+          {/* hovered day: grey band and ticker */}
+          {active !== null && active !== selectedIdx && (
+            <rect x={colX(active)} y={0} width={colW} height={PLOT_H} fill="#c3c9d9" opacity="0.4" />
+          )}
+
+          {/* selected day: blue band and centre line */}
           {selectedIdx >= 0 && (
             <g data-testid="graph-selected" data-date={selectedDate}>
-              <rect x={colX(selectedIdx)} y={0} width={colW} height={PLOT_H} fill="#e4e5ea" opacity="0.9" />
-              <line x1={colC(selectedIdx)} x2={colC(selectedIdx)} y1={0} y2={PLOT_H} stroke="#b7bdcd" strokeWidth="1" />
+              <rect x={colX(selectedIdx)} y={0} width={colW} height={PLOT_H} fill="#3a56e0" opacity="0.38" />
+              <line x1={colC(selectedIdx)} x2={colC(selectedIdx)} y1={0} y2={PLOT_H} stroke="#1f3fd1" strokeWidth="1.5" />
             </g>
           )}
 
-          {/* hover ticker */}
           {active !== null && (
             <line
               x1={colC(active)}
               x2={colC(active)}
               y1={0}
               y2={PLOT_H}
-              stroke="#8d96ad"
+              stroke="#1f3fd1"
               strokeWidth="1"
               data-testid="graph-ticker"
               data-date={dates[active]}
@@ -296,6 +335,12 @@ export function Graph({
               ))}
             </g>
           ))}
+
+          {/* markers on the hovered day */}
+          {active !== null && points[active].available &&
+            SERIES.map((s) => (
+              <circle key={s.key} cx={colC(active)} cy={y(points[active][s.key])} r="3.5" fill="#fff" stroke={s.color} strokeWidth="2" />
+            ))}
 
           {/* column hit areas and labels */}
           {points.map((p, i) => {
@@ -340,7 +385,7 @@ export function Graph({
                 <dl className="m-0 mt-2 flex flex-col gap-[6px]">
                   {SERIES.map((s) => (
                     <div key={s.key} className="flex items-center gap-2 text-[12px] leading-4 text-ink">
-                      <span className="inline-block h-[2px] w-[10px]" style={{ background: s.color }} aria-hidden="true" />
+                      <span className="inline-block h-2 w-2 rounded-full" style={{ background: s.color }} aria-hidden="true" />
                       <dt className="flex-1">{s.label}</dt>
                       <dd className="m-0 font-medium" data-testid={`popup-${s.key}`}>
                         {activePoint[s.key]}
